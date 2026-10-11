@@ -7,9 +7,13 @@
 <style>
 *{box-sizing:border-box}
 body{
-  margin:0;background:#171923;color:white;
-  font-family:monospace;text-align:center;
-  touch-action:manipulation
+  margin:0;
+  background:#171923;
+  color:white;
+  font-family:monospace;
+  text-align:center;
+  touch-action:pan-y;
+  overscroll-behavior-y:none;
 }
 h1{font-size:25px;color:#ffd166;margin:12px 0}
 h2{color:#ffd166}
@@ -40,15 +44,36 @@ canvas{
   padding:10px;color:#ffe29a;font-size:13px;line-height:1.6
 }
 #controls{
-  width:min(96vw,480px);margin:auto;
-  display:flex;justify-content:space-between;
-  align-items:center;gap:8px;padding:6px 2px 16px
+  width:min(92vw,460px);
+  margin:0 auto;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  padding:12px 18px 24px;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
 }
+
 .pad{
-  display:grid;grid-template-columns:repeat(3,44px);
-  grid-template-rows:repeat(2,42px);gap:3px
+  display:grid;
+  grid-template-columns:repeat(3,48px);
+  grid-template-rows:repeat(2,46px);
+  gap:5px;
+  flex-shrink:0;
+  touch-action:none;
 }
-.pad button{padding:0;font-size:20px}
+
+.pad button{
+  width:48px;
+  height:46px;
+  padding:0;
+  font-size:20px;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+}
 .actions{display:flex;flex-direction:column;gap:8px}
 .actions button{width:105px;height:48px;padding:5px;font-size:14px}
 #observe{background:#286a9b}
