@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>SERVICE RUSH</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;background:#171923;color:white;
+  font-family:monospace;text-align:center;
+  touch-action:manipulation
+}
+h1{font-size:25px;color:#ffd166;margin:12px 0}
+h2{color:#ffd166}
+button{
+  border:2px solid #fff0c2;border-radius:10px;
+  background:#754c32;color:white;font-size:16px;
+  font-weight:bold;padding:12px;cursor:pointer;
+  touch-action:manipulation
+}
+button:active{transform:scale(.96)}
+.primary{background:#b84a3b;min-width:180px}
+#menu{padding:20px 12px}
+#menu p{line-height:1.8}
+#panel{max-width:480px;margin:auto;padding:8px}
+#info{
+  display:flex;justify-content:space-around;
+  gap:5px;padding:8px;font-size:12px
+}
+#info span{background:#292d3b;padding:7px 4px;border-radius:6px}
+canvas{
+  display:block;width:min(96vw,480px);height:auto;
+  margin:auto;border:4px solid #f4d6a0;
+  image-rendering:pixelated;background:#315c43;
+  touch-action:none
+}
+#message{
+  max-width:480px;min-height:48px;margin:auto;
+  padding:10px;color:#ffe29a;font-size:13px;line-height:1.6
+}
+#controls{
+  width:min(96vw,480px);margin:auto;
+  display:flex;justify-content:space-between;
+  align-items:center;gap:8px;padding:6px 2px 16px
+}
+.pad{
+  display:grid;grid-template-columns:repeat(3,44px);
+  grid-template-rows:repeat(2,42px);gap:3px
+}
+.pad button{padding:0;font-size:20px}
+.actions{display:flex;flex-direction:column;gap:8px}
+.actions button{width:105px;height:48px;padding:5px;font-size:14px}
+#observe{background:#286a9b}
+.hidden{display:none!important}
+#result{padding:18px}
+.resultbox{
+  max-width:420px;margin:15px auto;padding:18px;
+  border:3px solid #ffd166;background:#292d3b;
+  line-height:2
+}
+.bigscore{font-size:32px;color:#ffd166}
+.small{font-size:12px;color:#c9ceda;line-height:1.7}
+</style>
+</head>
+<body>
+
+<section id="menu">
+  <h1>🍺 SERVICE RUSH</h1>
+  <p>接客力でハイスコアを目指せ！</p>
+  <p>👀 観察してニーズを発見<br>
+     🤝 適切な接客で満足度アップ<br>
+     🏆 3ステージを攻略しよう</p>
+  <button class="primary" id="start">ゲームスタート</button>
+  <p class="small">スマホ：画面のボタンで操作<br>PC：矢印キー・スペース・Enter</p>
+</section>
+
+<section id="panel" class="hidden">
+  <h1 id="stageTitle">STAGE 1</h1>
+  <div id="info">
+    <span>得点<br><b id="score">0</b></span>
+    <span>満足度<br><b id="sat">100</b>%</span>
+    <span>残り<br><b id="time">60</b>秒</span>
+    <span>コンボ<br><b id="combo">0</b></span>
+  </div>
+  <canvas id="game" width="320" height="400"></canvas>
+  <div id="message">お客さんに近づいて観察しよう！</div>
+  <div id="controls">
+    <div class="pad">
+      <span></span><button data-dir="up">▲</button><span></span>
+      <button data-dir="left">◀</button>
+      <button data-dir="down">▼</button>
+      <button data-dir="right">▶</button>
+    </div>
+    <div class="actions">
+      <button id="observe">👀 観察</button>
+      <button id="serve">🤝 接客</button>
+    </div>
+  </div>
+</section>
+
+<section id="result" class="hidden">
+  <h1 id="resultTitle">STAGE CLEAR!</h1>
+  <div class="resultbox">
+    <div>今回のスコア</div>
+    <div class="bigscore" id="stageScore">0</div>
+    <div>満足度：<b id="resultSat">0</b>%</div>
+    <div>接客成功：<b id="served">0</b>人</div>
+    <div>最高コンボ：<b id="bestCombo">0</b></div>
+    <div>評価：<b id="rank">B</b></div>
+  </div>
+  <p id="resultMessage"></p>
+  <button class="primary" id="next">次へ</button>
+</section>
+
+<script>
+const $=id=>document.getElementById(id);
+const canvas=$("game");
+const ctx=canvas.getContext("2d");
+
+const stages=[
+ {
+  name:"チュートリアル",
+  time:90,
+  target:0,
+  customers:[
+   {x:80,y:130,need:0},
+   {x:240,y:130,need:2}
+  ]
+ },
+ {
+  name:"STAGE 1：基本接客",
+  time:60,
+  target:500,
+  customers:[
+   {x:75,y:105,need:0},
+   {x:245,y:105,need:1},
+   {x:75,y:220,need:2},
+   {x:245,y:220,need:3}
+  ]
+ },
+ {
+  name:"STAGE 2：満席営業",
+  time:65,
+  target:1300,
+  customers:[
+   {x:60,y:90,need:0},
+   {x:160,y:90,need:2},
+   {x:260,y:90,need:1},
+   {x:60,y:215,need:3},
+   {x:160,y:215,need:1},
+   {x:260,y:215,need:2}
+  ]
+ },
+ {
+  name:"STAGE 3：接客ラッシュ",
+  time:75,
+  target:2200,
+  customers:[
+   {x:60,y:85,need:2},
+   {x:160,y:85,need:0},
+   {x:260,y:85,need:3},
+   {x:60,y:205,need:1},
+   {x:160,y:205,need:3},
+   {x:260,y:205,need:0},
+   {x:110,y:300,need:2},
+   {x:220,y:300,need:1}
+  ]
+ }
+];
+
+const needs=[
+ {icon:"📝",name:"注文",hint:"メニュー選びに迷っている！",action:"提案",points:400},
+ {icon:"🍳",name:"料理待ち",hint:"料理が遅くて困っている！",action:"提供",points:350},
+ {icon:"🥤",name:"通常",hint:"グラスが空になっている！",action:"声かけ",points:400},
+ {icon:"💬",name:"通常",hint:"スタッフを呼びたいようだ！",action:"フォロー",points:500}
+];
+
+let stageIndex=0,player,customers;
+let score=0,stageStartScore=0,sat=100,time=60;
+let combo=0,bestCombo=0,served=0,ended=true;
+let keys={},last=0,frame=0,selectedCustomer=null;
+let tutorialStep=0,grandTotal=0,grandServed=0;
+let stageSatStart=100,stageBestCombo=0;
+
+function startGame(){
+ stageIndex=0;
+ grandTotal=0;
+ grandServed=0;
+ score=0;
+ startStage();
+}
+
+function startStage(){
+ const s=stages[stageIndex];
+ $("menu").classList.add("hidden");
+ $("result").classList.add("hidden");
+ $("panel").classList.remove("hidden");
+ $("stageTitle").textContent=s.name;
+
+ player={x:160,y:350,speed:2.6};
+ customers=s.customers.map((c,i)=>({
+  ...c,found:false,done:false,wait:0,
+  wobble:i
+ }));
+ stageStartScore=score;
+ stageSatStart=sat;
+ stageBestCombo=bestCombo;
+ time=s.time;
+ combo=0;
+ served=0;
+ ended=false;
+ keys={};
+ selectedCustomer=null;
+ tutorialStep=0;
+ $("message").textContent=stageIndex===0
+  ?"【練習】お客さんに近づき「観察」→「接客」！"
+  :"お客さんを観察し、状況に合った接客をしよう！";
+ updateUI();
+ draw();
+ last=performance.now();
+ requestAnimationFrame(loop);
+}
+
+function person(x,y,shirt){
+ ctx.fillStyle="#30252b";
+ ctx.fillRect(x-7,y-5,14,17);
+ ctx.fillStyle=shirt;
+ ctx.fillRect(x-6,y-15,12,12);
+ ctx.fillStyle="#f5c99b";
+ ctx.fillRect(x-5,y-25,10,10);
+ ctx.fillStyle="#30252b";
+ ctx.fillRect(x-6,y-28,12,5);
+ ctx.fillStyle="#222";
+ ctx.fillRect(x-3,y-20,2,2);
+ ctx.fillRect(x+2,y-20,2,2);
+}
+
+function draw(){
+ ctx.clearRect(0,0,320,400);
+ ctx.fillStyle="#356447";
+ ctx.fillRect(0,0,320,400);
+
+ for(let y=0;y<400;y+=32){
+  for(let x=0;x<320;x+=32){
+   ctx.strokeStyle="#477552";
+   ctx.strokeRect(x,y,32,32);
+  }
+ }
+
+ ctx.fillStyle="#737d82";
+ ctx.fillRect(0,0,320,43);
+ ctx.fillStyle="#252d35";
+ ctx.fillRect(10,8,300,27);
+ ctx.fillStyle="white";
+ ctx.font="11px monospace";
+ ctx.textAlign="center";
+ ctx.fillText("KITCHEN / 配膳口",160,25);
+
+ customers.forEach(c=>{
+  ctx.fillStyle="#855633";
+  ctx.fillRect(c.x-28,c.y-16,56,32);
+  ctx.fillStyle="#bd8953";
+  ctx.fillRect(c.x-24,c.y-12,48,24);
+
+  person(c.x,c.y-2,c.done?"#777":"#e9a24d");
+
+  ctx.font="10px monospace";
+  ctx.textAlign="center";
+  ctx.fillStyle="white";
+  ctx.fillText(
+   c.done?"対応済":c.found?needs[c.need].action+"！":needs[c.need].name,
+   c.x,c.y+28
+  );
+
+  if(!c.done&&!c.found){
+   ctx.fillStyle="#ffe066";
+   ctx.fillRect(c.x-4,c.y-43,8,8);
+  }
+  if(c.found&&!c.done){
+   ctx.fillStyle="#fff2a0";
+   ctx.fillRect(c.x-26,c.y-58,52,13);
+   ctx.fillStyle="#33252a";
+   ctx.fillText("発見！",c.x,c.y-49);
+  }
+ });
+
+ person(player.x,player.y,"#4cb6e8");
+ ctx.fillStyle="white";
+ ctx.font="10px monospace";
+ ctx.textAlign="center";
+ ctx.fillText("スタッフ",player.x,player.y+24);
+}
+
+function updateUI(){
+ $("score").textContent=score;
+ $("sat").textContent=Math.round(sat);
+ $("time").textContent=Math.ceil(time);
+ $("combo").textContent=combo;
+}
+
+function nearby(){
+ let target=null,distance=Infinity;
+ for(const c of customers){
+  const d=Math.hypot(c.x-player.x,c.y-player.y);
+  if(!c.done&&d<distance){
+   distance=d;
+   target=c;
+  }
+ }
+ return target&&distance<55?target:null;
+}
+
+function observe(){
+ if(ended)return;
+ const c=nearby();
+ if(!c){
+  $("message").textContent="お客さんにもっと近づこう！";
+  return;
+ }
+ selectedCustomer=c;
+ if(c.found){
+  $("message").textContent="ニーズ発見済み！「"+needs[c.need].action+"」で対応しよう。";
+  return;
+ }
+ c.found=true;
+ score+=100;
+ $("message").textContent="👀 "+needs[c.need].hint+" 対応："+needs[c.need].action;
+ updateUI();
+ draw();
+}
+
+function serve(){
+ if(ended)return;
+ const c=nearby();
+ if(!c){
+  $("message").textContent="お客さんにもっと近づこう！";
+  return;
+ }
+ if(!c.found){
+  sat=Math.max(0,sat-5);
+  combo=0;
+  $("message").textContent="ニーズを見逃した！先に観察しよう。満足度 -5%";
+ }else{
+  const n=needs[c.need];
+  c.done=true;
+  served++;
+  grandServed++;
+  let points=n.points;
+  if(c.wait<12){
+   points+=100;
+   combo++;
+  }else{
+   combo=0;
+  }
+  points+=Math.min(combo,5)*50;
+  score+=points;
+  sat=Math.min(100,sat+3);
+  bestCombo=Math.max(bestCombo,combo);
+  stageBestCombo=Math.max(stageBestCombo,combo);
+
+  $("message").textContent=
+   "接客成功！ "+n.action+" +"+points+"点 / コンボ "+combo;
+
+  if(customers.every(x=>x.done)){
+   score+=300;
+   $("message").textContent+=" 全員対応ボーナス +300点！";
+  }
+ }
+ updateUI();
+ draw();
+ if(customers.every(c=>c.done))endStage(true);
+}
+
+function endStage(timeUp=false){
+ if(ended)return;
+ ended=true;
+ grandTotal+=score-stageStartScore;
+
+ $("panel").classList.add("hidden");
+ $("result").classList.remove("hidden");
+
+ const stagePoints=score-stageStartScore;
+ const s=stages[stageIndex];
+ const cleared=served>0&&(stagePoints>=s.target||customers.every(c=>c.done));
+
+ $("resultTitle").textContent=cleared?"STAGE CLEAR!":"営業終了！";
+ $("stageScore").textContent=stagePoints;
+ $("resultSat").textContent=Math.round(sat);
+ $("served").textContent=served;
+ $("bestCombo").textContent=stageBestCombo;
+
+ const rank=sat>=90&&stagePoints>=s.target?"S":
+            sat>=75?"A":sat>=50?"B":"C";
+ $("rank").textContent=rank;
+
+ if(stageIndex===0){
+  $("resultMessage").textContent=
+   "操作練習完了！次は基本接客に挑戦しよう。";
+  $("next").textContent="STAGE 1へ";
+ }else if(stageIndex<3){
+  $("resultMessage").textContent=
+   (cleared?"クリアおめでとう！":"次はもっと高い満足度を目指そう！")+
+   " 目標スコア："+s.target+"点";
+  $("next").textContent="次のステージへ";
+ }else{
+  $("resultTitle").textContent="🏆 ALL STAGES COMPLETE!";
+  $("stageScore").textContent=score;
+  $("resultMessage").textContent=
+   "総合結果！ 接客成功 "+grandServed+"人 / 最高コンボ "+bestCombo;
+  $("next").textContent="タイトルへ戻る";
+ }
+}
+
+function loop(now){
+ if(ended)return;
+ const dt=Math.min((now-last)/16.67,2);
+ last=now;
+ frame++;
+
+ if(keys.up)player.y-=player.speed*dt;
+ if(keys.down)player.y+=player.speed*dt;
+ if(keys.left)player.x-=player.speed*dt;
+ if(keys.right)player.x+=player.speed*dt;
+
+ player.x=Math.max(12,Math.min(308,player.x));
+ player.y=Math.max(55,Math.min(375,player.y));
+
+ time-=dt/60;
+
+ customers.forEach(c=>{
+  if(!c.done){
+   c.wait+=dt/60;
+   if(c.wait>20&&frame%30===0){
+    sat=Math.max(0,sat-0.2);
+   }
+  }
+ });
+
+ if(time<=0){
+  time=0;
+  updateUI();
+  endStage(true);
+  return;
+ }
+
+ updateUI();
+ draw();
+ requestAnimationFrame(loop);
+}
+
+function nextStage(){
+ if(stageIndex<3){
+  stageIndex++;
+  startStage();
+ }else{
+  $("result").classList.add("hidden");
+  $("menu").classList.remove("hidden");
+ }
+}
+
+document.querySelectorAll("[data-dir]").forEach(btn=>{
+ const dir=btn.dataset.dir;
+ const start=e=>{
+  e.preventDefault();
+  keys[dir]=true;
+ };
+ const stop=e=>{
+  e.preventDefault();
+  keys[dir]=false;
+ };
+ btn.addEventListener("pointerdown",start);
+ btn.addEventListener("pointerup",stop);
+ btn.addEventListener("pointerleave",stop);
+ btn.addEventListener("pointercancel",stop);
+});
+
+$("observe").addEventListener("pointerdown",e=>{
+ e.preventDefault();
+ observe();
+});
+$("serve").addEventListener("pointerdown",e=>{
+ e.preventDefault();
+ serve();
+});
+$("start").addEventListener("click",startGame);
+$("next").addEventListener("click",nextStage);
+
+window.addEventListener("keydown",e=>{
+ const map={
+  ArrowUp:"up",ArrowDown:"down",
+  ArrowLeft:"left",ArrowRight:"right",
+  w:"up",s:"down",a:"left",d:"right"
+ };
+ if(map[e.key]){
+  keys[map[e.key]]=true;
+  e.preventDefault();
+ }
+ if(e.key===" ")observe();
+ if(e.key==="Enter")serve();
+});
+window.addEventListener("keyup",e=>{
+ const map={
+  ArrowUp:"up",ArrowDown:"down",
+  ArrowLeft:"left",ArrowRight:"right",
+  w:"up",s:"down",a:"left",d:"right"
+ };
+ if(map[e.key])keys[map[e.key]]=false;
+});
+
+</script>
+</body>
+</html>
